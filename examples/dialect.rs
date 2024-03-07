@@ -9,7 +9,7 @@ fn main() {
     WHERE a > b AND b < 100 AND c BETWEEN 10 AND 20 \
     ORDER BY a DESC, b \
     LIMIT 50 OFFSET 10";
-
+    // 获取sql语句的语法树
     let ast = Parser::parse_sql(&GenericDialect::default(), sql);
     println!("{:#?}", ast);
 }
