@@ -3,6 +3,7 @@ use anyhow::Result;
 use polars::prelude::*;
 use polars::prelude::Expr::Column;
 use sqlparser::ast::{BinaryOperator as SqlBinaryOperator, BinaryOperator, Expr as SqlExpr, Offset as SqlOffset, OrderByExpr, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, Value as SqlValue};
+use sqlparser::dialect::keywords::Keyword::PROCEDURE;
 
 /// 解析出来的 SQL
 pub struct Sql<'a> {
@@ -32,9 +33,14 @@ impl<'a> TryFrom<&'a Statement> for Sql<'a> {
     fn try_from(sql: &'a Statement) -> Result<Self, Self::Error> {
         match sql {
             Statement::Query(q) => {
+                let offset = q.offset.as_ref();
+                let limit = q.limit.as_ref();
+                let orders = &q.order_by;
                 let Select {
                     from: table_with_joins,
                     selection: where_clause,
+                    projection,
+                    group_by: _,
                     ..
                 } = match &q.body {
                     SetExpr::Select(statement) => statement.as_ref(),
@@ -43,6 +49,32 @@ impl<'a> TryFrom<&'a Statement> for Sql<'a> {
 
                 let source = Source(table_with_joins).try_into()?;
 
+                let condition = match where_clause {
+                    None => None,
+                    Some(expr) => Some(Expression(Box::new(expr.to_owned())).try_into()?),
+                };
+
+                let mut selection = Vec::with_capacity(8);
+                for p in projection {
+                    let expr = Projection(p).try_into()?;
+                    selection.push(expr);
+                }
+
+                let mut order_by = Vec::new();
+                for expr in orders {
+                    order_by.push(Order(expr).try_into()?);
+                }
+                let offset = offset.map(|v| Offset(v).into());
+                let limit = limit.map(|v| Limit(v).into());
+
+                Ok(Sql{
+                    selection: selection,
+                    condition: condition,
+                    source: source,
+                    order_by: order_by,
+                    offset: offset,
+                    limit: limit,
+                })
             }
             _ => Err(anyhow!("We only support Query at the moment")),
         }
