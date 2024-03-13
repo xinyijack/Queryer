@@ -2,8 +2,7 @@ use anyhow::anyhow;
 use anyhow::Result;
 use polars::prelude::*;
 use polars::prelude::Expr::Column;
-use sqlparser::ast::{BinaryOperator as SqlBinaryOperator, BinaryOperator, Expr as SqlExpr, Offset as SqlOffset, OrderByExpr, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, Value as SqlValue};
-use sqlparser::dialect::keywords::Keyword::PROCEDURE;
+use sqlparser::ast::{BinaryOperator as SqlBinaryOperator, Expr as SqlExpr, Offset as SqlOffset, OrderByExpr, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, Value as SqlValue};
 
 /// 解析出来的 SQL
 pub struct Sql<'a> {
@@ -44,7 +43,7 @@ impl<'a> TryFrom<&'a Statement> for Sql<'a> {
                     ..
                 } = match &q.body {
                     SetExpr::Select(statement) => statement.as_ref(),
-                    _ => return Err(anyhow!("We only surport Select Query at the moment")),
+                    _ => return Err(anyhow!("We only support Select Query at the moment")),
                 };
 
                 let source = Source(table_with_joins).try_into()?;
@@ -68,12 +67,12 @@ impl<'a> TryFrom<&'a Statement> for Sql<'a> {
                 let limit = limit.map(|v| Limit(v).into());
 
                 Ok(Sql{
-                    selection: selection,
-                    condition: condition,
-                    source: source,
-                    order_by: order_by,
-                    offset: offset,
-                    limit: limit,
+                    selection,
+                    condition,
+                    source,
+                    order_by,
+                    offset,
+                    limit,
                 })
             }
             _ => Err(anyhow!("We only support Query at the moment")),
@@ -142,7 +141,7 @@ impl<'a> TryFrom<Projection<'a>> for Expr {
         match p.0 {
             SelectItem::UnnamedExpr(SqlExpr::Identifier(id)) => Ok(col(&id.to_string())),
             SelectItem::ExprWithAlias { expr: SqlExpr::Identifier(id), alias } =>
-                Ok(Expr::Alias(Box::new(Expr::Column(Arc::new(id.to_string()))), Arc::new(alias.to_string()))),
+                Ok(Expr::Alias(Box::new(Column(Arc::new(id.to_string()))), Arc::new(alias.to_string()))),
             SelectItem::QualifiedWildcard(v) =>
                 Ok(col(&v.to_string())),
             SelectItem::Wildcard =>
