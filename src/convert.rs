@@ -86,7 +86,7 @@ impl TryFrom<Expression> for Expr {
     fn try_from(value: Expression) -> Result<Self, Self::Error> {
         match *value.0 {
             SqlExpr::BinaryOp{left, op, right} => Ok({
-                Self::BinaryExpr {
+                Expr::BinaryExpr {
                     left: Box::new(Expression(left).try_into()?),
                     op: Operation(op).try_into()?,
                     right: Box::new(Expression(right).try_into()?),
@@ -96,7 +96,7 @@ impl TryFrom<Expression> for Expr {
                 Ok(Self::Wildcard)
             },
             SqlExpr::IsNull(expr) => {
-                Ok(Self::IsNull(Expression(expr).try_into()?))
+                Ok(Self::IsNull(Box::new(Expression(expr).try_into()?)))
             },
             SqlExpr::IsNotNull(expr) => {
                 Ok(Self::IsNotNull(Box::new(Expression(expr).try_into()?)))
@@ -120,7 +120,7 @@ impl TryFrom<Operation> for Operator {
             SqlBinaryOperator::Minus => Ok(Self::Minus),
             SqlBinaryOperator::Multiply => Ok(Self::Multiply),
             SqlBinaryOperator::Divide => Ok(Self::Divide),
-            SqlBinaryOperator::Modulo => Ok(Self::Modulo),
+            SqlBinaryOperator::Modulo => Ok(Self::Modulus),
             SqlBinaryOperator::Gt => Ok(Self::Gt),
             SqlBinaryOperator::Lt => Ok(Self::Lt),
             SqlBinaryOperator::GtEq => Ok(Self::GtEq),
@@ -210,7 +210,7 @@ impl<'a> From<Offset<'a>> for i64 {
 impl<'a> From<Limit<'a>> for usize {
     fn from(l: Limit<'a>) -> Self {
         match l.0 {
-            SqlExpr::Value(SqlValue::Number(v, _b)) => v.parse.unwarap_or(usize::MAX),
+            SqlExpr::Value(SqlValue::Number(v, _b)) => v.parse().unwrap_or(usize::MAX),
             _ => usize::MAX,
         }
     }
@@ -222,10 +222,33 @@ impl TryFrom<Value> for LiteralValue {
 
     fn try_from(v: Value) -> Result<Self, Self::Error> {
         match v.0 {
-            Value::Number(v, _) => Ok(LiteralValue::Float64(v.parse.unwrap())),
-            Value::Boolean(v) => Ok(LiteralValue::Boolean(v)),
-            Value::Null => Ok(LiteralValue::Null),
+            SqlValue::Number(v, _) => Ok(LiteralValue::Float64(v.parse().unwrap())),
+            SqlValue::Boolean(v) => Ok(LiteralValue::Boolean(v)),
+            SqlValue::Null => Ok(LiteralValue::Null),
             v => Err(anyhow!("Value {} is not supported", v)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::TyrDialect;
+    use sqlparser::parser::Parser;
+
+    #[test]
+    fn parse_sql_works() {
+        let url = "http://abc.xyz/abc?a=1&b=2";
+        let sql = format!(
+            "select a, b, c from {} where a=1 order by c desc limit 5 offset 10",
+            url
+        );
+        let statement = &Parser::parse_sql(&TyrDialect::default(), sql.as_ref()).unwrap()[0];
+        let sql: Sql = statement.try_into().unwrap();
+        assert_eq!(sql.source, url);
+        assert_eq!(sql.limit, Some(5));
+        assert_eq!(sql.offset, Some(10));
+        assert_eq!(sql.order_by, vec![("c".into(), true)]);
+        assert_eq!(sql.selection, vec![col("a"), col("b"), col("c")]);
     }
 }
