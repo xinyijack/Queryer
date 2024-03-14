@@ -233,8 +233,8 @@ impl TryFrom<Value> for LiteralValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::TyrDialect;
     use sqlparser::parser::Parser;
+    use crate::TryDialect;
 
     #[test]
     fn parse_sql_works() {
@@ -243,7 +243,7 @@ mod tests {
             "select a, b, c from {} where a=1 order by c desc limit 5 offset 10",
             url
         );
-        let statement = &Parser::parse_sql(&TyrDialect::default(), sql.as_ref()).unwrap()[0];
+        let statement = &Parser::parse_sql(&TryDialect::default(), sql.as_ref()).unwrap()[0];
         let sql: Sql = statement.try_into().unwrap();
         assert_eq!(sql.source, url);
         assert_eq!(sql.limit, Some(5));

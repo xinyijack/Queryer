@@ -6,7 +6,6 @@ use polars::prelude::{CsvWriter, IntoLazy};
 use sqlparser::parser::Parser;
 use tracing::info;
 use crate::convert::Sql;
-use crate::dialect::TryDialect;
 use crate::fetcher::retrieve_data;
 use crate::load::detect_contend;
 
@@ -14,6 +13,8 @@ mod dialect;
 mod convert;
 mod fetcher;
 mod load;
+pub use dialect::example_sql;
+pub use dialect::TryDialect;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
