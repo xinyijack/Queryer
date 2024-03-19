@@ -2,7 +2,7 @@
 ``git clone https://github.com/xinyijack/Queryer.git``
 
 ## 依赖项
-polars、tokio、sqlparser
+polars、tokio、sqlparser、reqwest
 列出项目的依赖项，并包括如何安装它们的指南。
 
 ## 许可证
